@@ -1,0 +1,16 @@
+:root {
+    --primary-color: #FFD700;
+    --secondary-color: #1a1a1a;
+    --accent-color: #B8860B;
+    --gradient-start: #FFD700;
+    --gradient-end: #B8860B;
+    --form-color: #B8860B;
+    --hover-color: #FFD700;
+    --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+
+  body{
+    background-color: #000;
+  }
+
