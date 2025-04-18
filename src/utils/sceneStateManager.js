@@ -79,7 +79,7 @@ export class SceneStateManager {
         connectedCubes: (hinge.userData?.connectedCubes || []).map(cube => cube.uuid)
       }))
     }
-    const response = await fetch('/api/saveCubeData', {
+    const response = await fetch('https://web-production-6b633.up.railway.app/saveCubeData', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -99,7 +99,7 @@ export class SceneStateManager {
       sceneState = importedState
     } else {
       // 否则从本地存储加载
-      const response = await fetch('/api/getCubeData', {
+      const response = await fetch('https://web-production-6b633.up.railway.app/getCubeData', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
