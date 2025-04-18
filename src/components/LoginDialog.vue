@@ -129,7 +129,7 @@ const handleLogin = async () => {
 
     try {
         isLoading.value = true
-        const response = await fetch('/login', {
+        const response = await fetch('https://web-production-6b633.up.railway.app/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
