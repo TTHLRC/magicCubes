@@ -1,4 +1,4 @@
-import { SceneStateManager } from './SceneStateManager'
+import { SceneStateManager } from './sceneStateManager'
 import { CubeManager } from './cubeManager'
 
 export class SceneExporter {
