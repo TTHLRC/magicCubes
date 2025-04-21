@@ -18,6 +18,7 @@ export class SceneUtils {
     this.ground = null
     this.currentMode = SceneMode.CREATE  // 默认模式
     this.annotationLines = []  // 存储标注线
+    this.coneControlGroup = new THREE.Group()
   }
 
   // 创建标注线
@@ -121,10 +122,29 @@ export class SceneUtils {
       this.createCubeConnectionLines(selectedCubes[0], selectedCubes[1])
     }
   }
+  getHingeInfoForCube(cube) {
+    const sceneState = JSON.parse(localStorage.getItem('scene_state'))
+    if (!sceneState.hingePoints) return null
 
+    for (const [key, hinge] of Object.entries(sceneState.hingePoints)) {
+      if (hinge.cube1UUID === cube.uuid || hinge.cube2UUID === cube.uuid) {
+        return hinge
+      }
+    }
+    return null
+  }
+  getSelectedCubes() {
+    return this.cameraControls ? this.cameraControls.selectedCubes : null
+  }
   // 获取cubeManager实例
   getCubeManager() {
     return this.cameraControls ? this.cameraControls.cubeManager : null
+  }
+  getConeControlGroup() {
+    return this.coneControlGroup
+  }
+  getConeControlArray() {
+    return this.cameraControls ? this.cameraControls.cubeManager.coneControlArray : null
   }
 
   // 控制网格显示
@@ -163,6 +183,9 @@ export class SceneUtils {
     // 创建场景
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color('#000000')
+
+    // 添加圆锥体控制组到场景
+    this.scene.add(this.coneControlGroup)
 
     // 创建相机
     this.camera = new THREE.PerspectiveCamera(
@@ -307,5 +330,77 @@ export class SceneUtils {
     if (this.renderer) {
       this.renderer.dispose()
     }
+  }
+
+  // 更新控制圆锥体的位置
+  // updateControlConesPosition(cubePosition) {
+  //   if (!this.coneControlGroup) return
+
+  //   const cubeSize = 4 // 立方体大小
+  //   const directions = [
+  //     { position: [0, cubeSize / 2 + 1.0, 0], rotation: [0, 0, 0] },    // 上
+  //     { position: [0, -cubeSize / 2 - 1.0, 0], rotation: [Math.PI, 0, 0] }, // 下
+  //     { position: [-cubeSize / 2 - 1.0, 0, 0], rotation: [0, 0, Math.PI / 2] }, // 左
+  //     { position: [cubeSize / 2 + 1.0, 0, 0], rotation: [0, 0, -Math.PI / 2] }, // 右
+  //     { position: [0, 0, cubeSize / 2 + 1.0], rotation: [Math.PI / 2, 0, 0] }, // 前
+  //     { position: [0, 0, -cubeSize / 2 - 1.0], rotation: [-Math.PI / 2, 0, 0] }  // 后
+  //   ]
+
+  //   this.coneControlGroup.children.forEach((cone, index) => {
+  //     const dir = directions[index]
+  //     cone.position.set(
+  //       cubePosition.x + dir.position[0],
+  //       cubePosition.y + dir.position[1],
+  //       cubePosition.z + dir.position[2]
+  //     )
+  //     // 更新圆锥体的矩阵
+  //     cone.updateMatrix()
+  //     cone.updateMatrixWorld(true)
+  //   })
+
+  //   // 更新场景
+  //   this.renderer.render(this.scene, this.camera)
+  // }
+
+  // 清除控制圆锥体
+  clearControlCones() {
+    if (this.coneControlGroup) {
+      while (this.coneControlGroup.children.length > 0) {
+        const cone = this.coneControlGroup.children[0]
+        this.coneControlGroup.remove(cone)
+        cone.geometry.dispose()
+        cone.material.dispose()
+      }
+    }
+  }
+
+  // 创建控制圆锥体
+  createControlCones(center) {
+    this.clearControlCones() // 清除现有的圆锥体
+
+    const coneGeometry = new THREE.ConeGeometry(0.5, 1.0, 32)
+    const cubeSize = 4 // 立方体大小
+    const directions = [
+      { position: [0, cubeSize / 2 + 1.0, 0], rotation: [0, 0, 0] },    // 上
+      { position: [0, -cubeSize / 2 - 1.0, 0], rotation: [Math.PI, 0, 0] }, // 下
+      { position: [-cubeSize / 2 - 1.0, 0, 0], rotation: [0, 0, Math.PI / 2] }, // 左
+      { position: [cubeSize / 2 + 1.0, 0, 0], rotation: [0, 0, -Math.PI / 2] }, // 右
+      { position: [0, 0, cubeSize / 2 + 1.0], rotation: [Math.PI / 2, 0, 0] }, // 前
+      { position: [0, 0, -cubeSize / 2 - 1.0], rotation: [-Math.PI / 2, 0, 0] }  // 后
+    ]
+
+    directions.forEach(dir => {
+      const cone = new THREE.Mesh(coneGeometry, normalMaterial_Cone)
+      cone.position.set(
+        center.x + dir.position[0],
+        center.y + dir.position[1],
+        center.z + dir.position[2]
+      )
+      cone.rotation.set(dir.rotation[0], dir.rotation[1], dir.rotation[2])
+      cone.renderOrder = -1
+      cone.userData.isControlCone = true
+
+      this.coneControlGroup.add(cone)
+    })
   }
 } 

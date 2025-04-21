@@ -1,4 +1,4 @@
-import { SceneStateManager } from './sceneStateManager'
+import { SceneStateManager } from './SceneStateManager'
 import { CubeManager } from './cubeManager'
 
 export class SceneExporter {
@@ -26,7 +26,7 @@ export class SceneExporter {
       if (!this.sceneStateManager) {
         throw new Error('SceneStateManager not initialized')
       }
-
+      
       const state = this.sceneStateManager.getCurrentState()
       if (!state) {
         throw new Error('Failed to get current scene state')
@@ -34,12 +34,12 @@ export class SceneExporter {
 
       const dataStr = JSON.stringify(state, null, 2)
       const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
-
+      
       const linkElement = document.createElement('a')
       linkElement.setAttribute('href', dataUri)
       linkElement.setAttribute('download', filename)
       linkElement.click()
-
+      
       return true
     } catch (error) {
       console.error('Error exporting scene:', error)
@@ -84,7 +84,7 @@ export class SceneExporter {
   readFileAsJSON(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-
+      
       reader.onload = (event) => {
         try {
           const json = JSON.parse(event.target.result)
@@ -93,11 +93,11 @@ export class SceneExporter {
           reject(new Error('Invalid JSON format'))
         }
       }
-
+      
       reader.onerror = () => {
         reject(new Error('Error reading file'))
       }
-
+      
       reader.readAsText(file)
     })
   }

@@ -6,7 +6,6 @@ import { cubeConfig } from '../config/cubeConfig'
 import { SceneStateManager } from './sceneStateManager'
 import { SceneMode } from '../config/modeConfig'
 import { selectedMaterial_Hinge, preMaterial_Hinge } from '../config/materials'
-import * as CANNON from 'cannon-es'
 
 export class CameraControls extends OrbitControls {
   constructor(camera, domElement, scene) {
@@ -202,49 +201,7 @@ export class CameraControls extends OrbitControls {
       this.isDraggingCone = false
     })
 
-    // 添加鼠标移动事件
-    this.domElement.addEventListener('mousemove', (event) => {
-      if (this.isDraggingCone && this.selectedCubes.length > 0) {
-        const currentTime = performance.now()
-        const deltaTime = (currentTime - this.lastUpdateTime) / 1000
-        this.lastUpdateTime = currentTime
 
-        const selectedCube = this.selectedCubes[0]
-        const cones = this.cubeManager.coneControlArray
-        const coneIntersects = this.raycaster.intersectObjects(cones)
-
-        if (coneIntersects.length > 0) {
-          const clickedCone = coneIntersects[0].object
-
-          // 计算从被选中的网格到控制圆锥体的方向向量
-          const direction = clickedCone.position.clone().sub(selectedCube.position).normalize()
-          const forceMagnitude = 1000  // 增加力的大小
-          const f = direction.multiplyScalar(forceMagnitude)
-
-          // 获取立方体的物理体
-          const cubeBody = selectedCube.userData.physicsBody
-
-          if (cubeBody) {
-            // 重置速度和角速度
-            cubeBody.velocity.set(0, 0, 0)
-            cubeBody.angularVelocity.set(0, 0, 0)
-
-            // 应用力到物理体
-            const cannonForce = new CANNON.Vec3(f.x, f.y, f.z)
-            cubeBody.applyForce(
-              cannonForce,
-              new CANNON.Vec3(0, 0, 0)
-            )
-
-            // 更新物理世界
-            this.cubeManager.physicsManager.update(deltaTime)
-
-            // 同步物理体到图形对象
-            this.cubeManager.physicsManager.syncPhysicsToGraphics(selectedCube, cubeBody)
-          }
-        }
-      }
-    })
 
     // 添加动画循环
     this.animate()
@@ -356,8 +313,40 @@ export class CameraControls extends OrbitControls {
         }
       ]
       hingePositions.push(...edgePoints)
-    } else if (Math.abs(dx) === cubeSize && Math.abs(dz) === cubeSize) {
-      // 斜角相邻，在共享顶点处创建铰接点
+    }
+    // 处理垂直相邻的情况（y方向）
+    else if (Math.abs(dy) === cubeSize && dx === 0 && dz === 0) {
+      const x = cube1.position.x
+      const midY = cube1.position.y + dy / 2
+      const z = cube1.position.z
+
+      // 创建四个铰接点，每个在边的中点
+      const edgePoints = [
+        // 前边中点
+        {
+          position: new THREE.Vector3(x - cubeSize / 2, midY, z),
+          edge: 'front'
+        },
+        // 后边中点
+        {
+          position: new THREE.Vector3(x + cubeSize / 2, midY, z),
+          edge: 'back'
+        },
+        // 左边中点
+        {
+          position: new THREE.Vector3(x, midY, z - cubeSize / 2),
+          edge: 'left'
+        },
+        // 右边中点
+        {
+          position: new THREE.Vector3(x, midY, z + cubeSize / 2),
+          edge: 'right'
+        }
+      ]
+      hingePositions.push(...edgePoints)
+    }
+    // 处理斜角相邻的情况
+    else if (Math.abs(dx) === cubeSize && Math.abs(dz) === cubeSize) {
       const x = cube1.position.x + dx / 2
       const y = cube1.position.y
       const z = cube1.position.z + dz / 2
@@ -433,26 +422,24 @@ export class CameraControls extends OrbitControls {
         this.selectedHingePoints.splice(index, 1)
         // 从 hingeMap 中移除
         this.hingeMap.delete(intersectedPoint.uuid)
-        this.saveHingeState()  // 保存状态
       } else {
+
         // 如果未达到最大选中数量，添加新的选中点
         this.selectedHingePoints.push(intersectedPoint)
         intersectedPoint.material = selectedMaterial_Hinge
         intersectedPoint.userData.status = true
-
+        console.log(intersectedPoint);
         // 将铰接点信息存储到 hingeMap 中
         const cube1 = intersectedPoint.userData.connectedCubes[0]
         const cube2 = intersectedPoint.userData.connectedCubes[1]
-        console.log(this.hingeMap);
 
         this.hingeMap.set(intersectedPoint.uuid, {
           cube1UUID: cube1.uuid,
           cube2UUID: cube2.uuid,
           edge: intersectedPoint.userData.edge,
-          positon: intersectedPoint.positon
+          position: intersectedPoint.position
         })
 
-        this.saveHingeState()  // 保存状态
       }
       event.stopPropagation()
       return
@@ -485,7 +472,6 @@ export class CameraControls extends OrbitControls {
         }
       }
     } else if (this.currentMode === SceneMode.HINGE) {
-      console.log(this.selectedHingePoints);
 
       // 铰接模式下的选择逻辑
       if (intersects.length > 0) {
@@ -498,8 +484,6 @@ export class CameraControls extends OrbitControls {
           this.originalMaterials.delete(clickedCube.uuid)
           // 从选中列表中移除
           this.selectedCubes = this.selectedCubes.filter(cube => cube !== clickedCube)
-          // 保存状态
-          this.saveHingeState()
           return
         }
 
@@ -525,8 +509,6 @@ export class CameraControls extends OrbitControls {
             }
           })
         }
-        // 保存状态
-        this.saveHingeState()
       }
     } else if (this.currentMode === SceneMode.DEMO) {
       // 演示模式下的选择逻辑
@@ -666,6 +648,7 @@ export class CameraControls extends OrbitControls {
   saveHingeState() {
     // 将 hingeMap 转换为普通对象以便存储
     const hingeMapData = {}
+
     this.hingeMap.forEach((value, key) => {
       // 找到对应的铰接点对象
       const hingePoint = this.hingePoints.find(point => point.uuid === key)
@@ -680,12 +663,13 @@ export class CameraControls extends OrbitControls {
         }
       }
     })
-
     const state = {
       selectedCubes: this.selectedCubes.map(cube => cube.uuid),
       selectedHinges: this.selectedHingePoints.map(point => point.uuid),
       hingeMap: hingeMapData
     }
+    console.log(state);
+
     this.sceneStateManager.saveSceneState(state)
   }
 
@@ -696,8 +680,15 @@ export class CameraControls extends OrbitControls {
     // 恢复铰接点映射
     this.hingeMap.clear()
     if (state.hingeMap) {
+      // 使用Object.entries来遍历对象
       Object.entries(state.hingeMap).forEach(([key, value]) => {
-        this.hingeMap.set(key, value)
+        this.hingeMap.set(key, {
+          cube1UUID: value.cube1UUID,
+          cube2UUID: value.cube2UUID,
+          position: value.position,
+          edge: value.edge,
+          status: value.status
+        })
       })
     }
 

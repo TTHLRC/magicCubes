@@ -6,7 +6,7 @@
       <div @click="togglePhysics(true)">
         <i class="fas fa-play"></i>
       </div>
-      <div @click="togglePhysics(false)">
+      <div @click="pause()">
         <i class="fas fa-pause"></i>
       </div>
       <div @click="reset">
@@ -36,6 +36,8 @@ let physicsManager = null
 let cubeBodies = new Map() // 存储立方体与其物理体的映射
 const isPhysicsActive = ref(false)
 const savedStates = new Map()
+const lastMouseX = ref(0)
+const lastMouseY = ref(0)
 // 存储铰接约束
 let hingeConstraints = []
 
@@ -44,41 +46,58 @@ const isDraggingCone = ref(false)
 const lastUpdateTime = ref(0)
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
-const LONG_PRESS_DELAY = 500 // 长按判定时间（毫秒）
-let longPressTimer = null
-let isLeftMouseDown = false
-// 处理圆锥体长按
-const handleMouseDown = (event) => {
-  // 只响应左键点击 + Ctrl/Command 键
-  if (event.button !== 0 || !(event.ctrlKey || event.metaKey)) return
 
-  isLeftMouseDown = true
+// 判断圆锥体相对于立方体的位置
+const getConePosition = (cone, cube) => {
+  // 获取圆锥体的世界坐标位置
+  const coneWorldPosition = new THREE.Vector3()
+  cone.getWorldPosition(coneWorldPosition)
 
-  // 计算鼠标位置
-  const rect = container.value.getBoundingClientRect()
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+  // 获取立方体的世界坐标位置
+  const cubeWorldPosition = new THREE.Vector3()
+  cube.getWorldPosition(cubeWorldPosition)
 
-  // 启动长按计时器
-  longPressTimer = setTimeout(() => {
-    if (!isLeftMouseDown) return
+  // 计算相对位置
+  const relativePosition = new THREE.Vector3()
+  relativePosition.subVectors(coneWorldPosition, cubeWorldPosition)
 
-    // 检查是否点击到圆锥体
-    raycaster.setFromCamera(mouse, sceneUtils.camera)
-    const cones = sceneUtils.cubeManager.coneControlArray
-    const coneIntersects = raycaster.intersectObjects(cones)
-    setHingeConstraint()
-    if (coneIntersects.length > 0) {
-      isDraggingCone.value = true
-      lastUpdateTime.value = performance.now()
+  // 计算各个方向的分量
+  const x = relativePosition.x
+  const y = relativePosition.y
+  const z = relativePosition.z
+
+  // 设置一个阈值，用于判断是否在某个方向上
+  const threshold = 0.1
+
+  // 判断位置
+  if (Math.abs(x) > Math.abs(y) && Math.abs(x) > Math.abs(z)) {
+    // 左右方向
+    return x > threshold ? 'right' : 'left'
+  } else if (Math.abs(y) > Math.abs(x) && Math.abs(y) > Math.abs(z)) {
+    // 上下方向
+    return y > threshold ? 'up' : 'down'
+  } else if (Math.abs(z) > Math.abs(x) && Math.abs(z) > Math.abs(y)) {
+    // 前后方向
+    return z > threshold ? 'front' : 'back'
+  } else {
+    // 如果分量相近，根据圆锥体的旋转来判断
+    const rotation = cone.rotation
+    if (Math.abs(rotation.x) > Math.abs(rotation.y) && Math.abs(rotation.x) > Math.abs(rotation.z)) {
+      return rotation.x > 0 ? 'front' : 'back'
+    } else if (Math.abs(rotation.y) > Math.abs(rotation.x) && Math.abs(rotation.y) > Math.abs(rotation.z)) {
+      return rotation.y > 0 ? 'up' : 'down'
+    } else {
+      return rotation.z > 0 ? 'right' : 'left'
     }
-  }, LONG_PRESS_DELAY)
+  }
 }
 
-// 处理圆锥体移动
-const handleMouseMove = (event) => {
-  if (!isDraggingCone.value) return
-
+// 处理鼠标按下事件
+const handleMouseDown = (event) => {
+  // 只检查左键点击
+  if (event.button !== 0) return
+  lastMouseX.value = event.clientX
+  lastMouseY.value = event.clientY
   // 计算鼠标在归一化设备坐标中的位置
   const rect = container.value.getBoundingClientRect()
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
@@ -87,76 +106,142 @@ const handleMouseMove = (event) => {
   // 更新射线
   raycaster.setFromCamera(mouse, sceneUtils.camera)
 
-  // 处理长按圆锥体的逻辑
-  if (isDraggingCone.value && sceneUtils.cubeManager.selectedCubes.length > 0) {
-    const currentTime = performance.now()
-    const deltaTime = (currentTime - lastUpdateTime.value) / 1000
-    lastUpdateTime.value = currentTime
+  // 检查是否点击到圆锥体
+  const conesGroup = sceneUtils.cameraControls.cubeManager.getConeControlGroup()
+  if (!conesGroup) {
+    console.warn('No cone control group found')
+    return
+  }
 
-    const selectedCube = sceneUtils.cubeManager.selectedCubes[0]
-    const cones = sceneUtils.cubeManager.coneControlArray
-    const coneIntersects = raycaster.intersectObjects(cones)
+  // 确保圆锥体组中的所有对象都是可交互的
+  conesGroup.traverse((child) => {
+    if (child.isMesh) {
+      child.visible = true
+    }
+  })
+  const coneIntersects = raycaster.intersectObjects(conesGroup.children, true)
 
-    if (coneIntersects.length > 0) {
-      const clickedCone = coneIntersects[0].object
+  if (coneIntersects.length > 0) {
+    const clickedCone = coneIntersects[0].object
+    const selectedCube = sceneUtils.getSelectedCubes()[0]
 
-      // 计算从被选中的网格到控制圆锥体的方向向量
-      const direction = clickedCone.position.clone().sub(selectedCube.position).normalize()
-      const forceMagnitude = 1000  // 增加力的大小
-      const f = direction.multiplyScalar(forceMagnitude)
+    let conePosition, forceDirection
+    if (selectedCube) {
+      conePosition = getConePosition(clickedCone, selectedCube)
+      console.log(conePosition);
 
-      // 获取立方体的物理体
-      const cubeBody = selectedCube.userData.physicsBody
-
-      if (cubeBody) {
-        // 重置速度和角速度
-        cubeBody.velocity.set(0, 0, 0)
-        cubeBody.angularVelocity.set(0, 0, 0)
-
-        // 应用力到物理体
-        const cannonForce = new CANNON.Vec3(f.x, f.y, f.z)
-        cubeBody.applyForce(
-          cannonForce,
-          new CANNON.Vec3(0, 0, 0)
-        )
-
-        // 更新物理世界
-        physicsManager.update(deltaTime)
-
-        // 同步物理体到图形对象
-        physicsManager.syncPhysicsToGraphics(selectedCube, cubeBody)
+      if (conePosition === 'right') {
+        forceDirection = new THREE.Vector3(1, 0, 0) // 向右
+      } else if (conePosition === 'left') {
+        forceDirection = new THREE.Vector3(-1, 0, 0) // 向左
+      } else if (conePosition === 'up') {
+        forceDirection = new THREE.Vector3(0, 1, 0) // 向上
+      } else if (conePosition === 'down') {
+        forceDirection = new THREE.Vector3(0, -1, 0) // 向下
+      } else if (conePosition === 'front') {
+        forceDirection = new THREE.Vector3(0, 0, 1) // 向前
+      } else if (conePosition === 'back') {
+        forceDirection = new THREE.Vector3(0, 0, -1) // 向后
       }
+    }
+    // 处理其他物体
+    physicsManager.world.bodies.forEach((body, index) => {
+      // 检查该物体是否在约束中
+      const isConstrained = hingeConstraints.some(constraint =>
+        constraint.bodyA === body || constraint.bodyB === body
+      )
+
+      if (body.isFix && isConstrained) {
+        body.sleep()
+        body.type = CANNON.Body.STATIC
+        body.velocity.set(0, 0, 0)
+        body.angularVelocity.set(0, 0, 0)
+        body.force.set(0, 0, 0)
+        body.torque.set(0, 0, 0)
+      }
+      if (isConstrained && !body.isFix) {
+        body.wakeUp()
+        body.mass = 1
+        body.updateMassProperties()
+        body.type = CANNON.Body.DYNAMIC
+      }
+      if (!isConstrained) {
+        body.sleep()
+      }
+      // 重置速度和角速度
+      body.velocity.set(0, 0, 0)
+      body.angularVelocity.set(0, 0, 0)
+      body.force.set(0, 0, 0)
+      body.torque.set(0, 0, 0)
+    })
+
+    // 设置重力方向
+    if (forceDirection) {
+      physicsManager.world.gravity.set(
+        forceDirection.x,
+        forceDirection.y,
+        forceDirection.z
+      )
     }
   }
 }
 
+// 处理鼠标移动事件
+const handleMouseMove = (event) => {
+  if (!isDraggingCone.value) return
+  // 根据圆锥体的位置确定力的方向
+}
+
+// 处理鼠标释放事件
 const handleMouseUp = () => {
-  isLeftMouseDown = false
-  clearTimeout(longPressTimer)
-  isDraggingCone.value = false
+
+  // 处理其他物体
+  physicsManager.world.bodies.forEach((body, index) => {
+
+    const isConstrained = hingeConstraints.some(constraint =>
+      constraint.bodyA === body || constraint.bodyB === body
+    )
+    if (isConstrained) {
+      body.sleep()
+    }
+  })
 }
 
 onMounted(() => {
   // 初始化场景
   sceneUtils = new SceneUtils(container.value)
-
-  // 在初始化场景之前设置演示模式
-  sceneUtils.setSceneMode(SceneMode.DEMO)
-  // 初始化场景
   sceneUtils.initScene()
+
+  // 隐藏网格和地板
+  sceneUtils.setGridVisible(false)
+  sceneUtils.setGroundVisible(false)
+
+  // 设置为演示模式并禁用创建和删除功能
+  if (sceneUtils.cameraControls) {
+    sceneUtils.cameraControls.setMode(SceneMode.DEMO)
+    sceneUtils.cameraControls.enabled = false
+  }
 
   // 初始化物理世界
   physicsManager = new PhysicsManager()
 
   // 将场景中现有的立方体添加到物理世界
   const addCubesToPhysics = (object) => {
+    const scene_stateIsFix = JSON.parse(localStorage.getItem('scene_state'))
+    container.value.style.touchAction = 'none' // 防止移动端干扰
+    container.value.focus() // 确保元素获取焦点
+
     // 检查是否是立方体
     if (object.type === 'Mesh' && object.geometry.type === "BoxGeometry") {
       object.userData.isCube = true
+      if (scene_stateIsFix.cubes[0].isFix && scene_stateIsFix.cubes[0].uuid == object.uuid) {
+        object.userData.isFix = true
+      }
       try {
         const body = physicsManager.createCubeBody(object)
         // 如果是固定状态，设置物理体为静态
         if (object.userData.isFix) {
+          body.isFix = true
           body.mass = 0
           body.updateMassProperties()
           body.type = CANNON.Body.STATIC
@@ -165,6 +250,9 @@ onMounted(() => {
           body.angularVelocity.set(0, 0, 0)
           body.force.set(0, 0, 0)
           body.torque.set(0, 0, 0)
+          body.collisionResponse = true
+          const boxShape = new CANNON.Box(new CANNON.Vec3(1, 1, 1)); // 定义碰撞体形状
+          body.addShape(boxShape);
         }
         cubeBodies.set(object, body)
       } catch (error) {
@@ -183,27 +271,28 @@ onMounted(() => {
   // 从场景根节点开始遍历
   addCubesToPhysics(sceneUtils.scene)
   saveInitialStates()
-
   container.value.addEventListener('mousedown', handleMouseDown)
   container.value.addEventListener('mousemove', handleMouseMove)
   container.value.addEventListener('mouseup', handleMouseUp)
-  container.value.addEventListener('mouseleave', handleMouseUp)
 
   // 修改动画循环
   const animate = () => {
     requestAnimationFrame(animate)
 
+    // 无论物理是否激活，都更新物理世界
     if (isPhysicsActive.value) {
+      // 更新物理世界
       physicsManager.update(1 / 60)
 
-      // 更新铰接约束
-      hingeConstraints.forEach(constraint => {
-        // 可以在这里更新约束参数
-        constraint.setMotorSpeed(0) // 保持静止
-      })
-
+      // 同步所有立方体的物理状态
       cubeBodies.forEach((body, cube) => {
-        physicsManager.syncPhysicsToGraphics(cube, body)
+        if (body.mass > 0) { // 只同步动态物体
+          physicsManager.syncPhysicsToGraphics(cube, body)
+          // 如果这个立方体被选中，更新其圆锥体的位置
+          if (sceneUtils.getSelectedCubes().includes(cube)) {
+            sceneUtils.cameraControls.cubeManager.updateControlConesPosition(cube.position)
+          }
+        }
       })
     }
 
@@ -219,71 +308,58 @@ onBeforeUnmount(() => {
   if (sceneUtils) {
     sceneUtils.dispose()
   }
-  // 移除圆锥体交互事件监听
+  window.removeEventListener('resize', () => sceneUtils.onWindowResize())
   container.value.removeEventListener('mousedown', handleMouseDown)
   container.value.removeEventListener('mousemove', handleMouseMove)
   container.value.removeEventListener('mouseup', handleMouseUp)
-  container.value.removeEventListener('mouseleave', handleMouseUp)
-  window.removeEventListener('resize', () => sceneUtils.onWindowResize())
 })
-const calculateHingeConstraint = (cube1, cube2, hingeInfo) => {
-  console.log(cube1, cube2, hingeInfo, hingeInfo.position);
 
+const calculateHingeConstraint = (cube1, cube2, hingeInfo) => {
   if (!cube1 || !cube2 || !hingeInfo || !hingeInfo.position) {
     console.error('Invalid parameters for hinge constraint calculation:', { cube1, cube2, hingeInfo })
     return null
   }
 
-  // 1. 立方体连线方向
-  const cubeToCubeVector = new THREE.Vector3(
-    cube2.position.x - cube1.position.x,
-    cube2.position.y - cube1.position.y,
-    cube2.position.z - cube1.position.z
+  // 计算支点位置（世界坐标转局部坐标）
+  const pivotWorld = new THREE.Vector3(
+    hingeInfo.position.x,
+    hingeInfo.position.y,
+    hingeInfo.position.z
   )
-  cubeToCubeVector.normalize()
 
-  // 2. 计算轴方向
-  const globalUp = new THREE.Vector3(0, 1, 0)
-  let axis = new THREE.Vector3()
-  axis.crossVectors(cubeToCubeVector, globalUp)
-  axis.normalize()
+  const cube1Pos = new THREE.Vector3().copy(cube1.position)
+  const cube2Pos = new THREE.Vector3().copy(cube2.position)
 
-  // 3. 避免叉乘结果为零向量
-  if (axis.length() < 1e-6) {
-    const globalRight = new THREE.Vector3(1, 0, 0)
-    axis.crossVectors(cubeToCubeVector, globalRight)
-    axis.normalize()
+  const pivotLocal1 = pivotWorld.clone().sub(cube1Pos)
+  const pivotLocal2 = pivotWorld.clone().sub(cube2Pos)
+
+  // 根据铰链位置确定旋转轴
+  let axis = new THREE.Vector3(0, 1, 0) // 默认使用Y轴
+  if (hingeInfo.edge === 'back' || hingeInfo.edge === 'front') {
+    axis = new THREE.Vector3(0, 1, 0) // 前后边缘使用Y轴
+  } else if (hingeInfo.edge === 'left' || hingeInfo.edge === 'right') {
+    axis = new THREE.Vector3(1, 0, 0) // 左右边缘使用X轴
+  } else if (hingeInfo.edge === 'top' || hingeInfo.edge === 'bottom') {
+    axis = new THREE.Vector3(0, 0, 1) // 上下边缘使用Z轴
   }
 
-  // 4. 支点（局部坐标）
-  const pivotA = new CANNON.Vec3(
-    hingeInfo.position.x - cube1.position.x,
-    hingeInfo.position.y - cube1.position.y,
-    hingeInfo.position.z - cube1.position.z
-  )
-  const pivotB = new CANNON.Vec3(
-    hingeInfo.position.x - cube2.position.x,
-    hingeInfo.position.y - cube2.position.y,
-    hingeInfo.position.z - cube2.position.z
-  )
+  // 将轴转换到局部坐标系
+  const cube1Quaternion = new THREE.Quaternion()
+  cube1.getWorldQuaternion(cube1Quaternion)
+  const cube2Quaternion = new THREE.Quaternion()
+  cube2.getWorldQuaternion(cube2Quaternion)
 
-  // 5. 创建约束
+  const localAxis1 = axis.clone().applyQuaternion(cube1Quaternion)
+  const localAxis2 = axis.clone().applyQuaternion(cube2Quaternion)
+
   return {
-    pivotA,
-    pivotB,
-    axisA: new CANNON.Vec3(axis.x, axis.y, axis.z),
-    axisB: new CANNON.Vec3(axis.x, axis.y, axis.z)
+    pivotA: new CANNON.Vec3(pivotLocal1.x, pivotLocal1.y, pivotLocal1.z),
+    pivotB: new CANNON.Vec3(pivotLocal2.x, pivotLocal2.y, pivotLocal2.z),
+    axisA: new CANNON.Vec3(localAxis1.x, localAxis1.y, localAxis1.z),
+    axisB: new CANNON.Vec3(localAxis2.x, localAxis2.y, localAxis2.z)
   }
 }
-const getCubeByUUID = (uuid) => {
-  // 使用 for...of 替代 forEach 以支持提前返回
-  for (const child of sceneUtils.scene.children) {
-    if (child.userData.isCube && child.uuid === uuid) {
-      return child; // 找到后立即返回
-    }
-  }
-  return null; // 未找到时返回 null
-};
+
 //设置约束
 const setHingeConstraint = () => {
   // 清除现有的约束
@@ -305,7 +381,6 @@ const setHingeConstraint = () => {
     Object.entries(sceneState.hingePoints).forEach(([hingeUUID, hingeInfo]) => {
       const cube1 = getCubeByUUID(hingeInfo.cube1UUID)
       const cube2 = getCubeByUUID(hingeInfo.cube2UUID)
-      console.log(hingeInfo);
 
       if (cube1 && cube2) {
         const body1 = cubeBodies.get(cube1)
@@ -325,10 +400,19 @@ const setHingeConstraint = () => {
                 axisB: constraint.axisB
               }
             )
+
             // 设置约束参数
-            hingeConstraint.enableMotor()
-            hingeConstraint.setMotorSpeed(0)
-            hingeConstraint.setMotorMaxForce(1000)
+            hingeConstraint.disableMotor()
+            hingeConstraint.collideConnected = true // 启用约束体之间的碰撞检测
+
+            // 设置约束限制
+            hingeConstraint.enableLimit = false // 禁用旋转限制
+            hingeConstraint.lowerLimit = -Math.PI * 2 // 允许360度旋转
+            hingeConstraint.upperLimit = Math.PI * 2
+
+            // 设置约束刚度
+            hingeConstraint.stiffness = 0.1 // 降低约束刚度
+            hingeConstraint.damping = 0.1 // 降低约束阻尼
 
             physicsManager.world.addConstraint(hingeConstraint)
             hingeConstraints.push(hingeConstraint)
@@ -338,17 +422,57 @@ const setHingeConstraint = () => {
     })
   }
 }
+const getCubeByUUID = (uuid) => {
+  // 使用 for...of 替代 forEach 以支持提前返回
+  for (const child of sceneUtils.scene.children) {
+    if (child.userData.isCube && child.uuid === uuid) {
+      return child; // 找到后立即返回
+    }
+  }
+  return null; // 未找到时返回 null
+};
+
+
 // 切换物理模拟状态
 const togglePhysics = (value) => {
-  physicsManager.world.bodies.forEach((body) => {
-    body.wakeUp(); // 唤醒物体
-  });
   isPhysicsActive.value = value
   setHingeConstraint()
+  // 获取场景状态
+
+  physicsManager.world.bodies.forEach((body) => {
+    // 检查该物体是否在约束中
+    const isConstrained = hingeConstraints.some(constraint =>
+      constraint.bodyA === body || constraint.bodyB === body
+    )
+
+    if (isConstrained) {
+      // 如果有约束，设置为静态
+      body.mass = 0
+      body.updateMassProperties()
+      body.type = CANNON.Body.STATIC
+      body.velocity.set(0, 0, 0)
+      body.angularVelocity.set(0, 0, 0)
+      body.force.set(0, 0, 0)
+      body.torque.set(0, 0, 0)
+    } else {
+      // 如果没有约束，设置为动态并唤醒
+      body.wakeUp()
+      body.mass = 1
+      body.updateMassProperties()
+      body.type = CANNON.Body.DYNAMIC
+    }
+  })
 }
+//暂停
+const pause = () => {
+  physicsManager.world.bodies.forEach((body) => {
+    body.sleep()
+  })
+}
+
+
 // 重置场景
 const reset = () => {
-
   try {
     physicsManager.world.bodies.forEach((body) => {
       const state = savedStates.get(body);
@@ -361,12 +485,11 @@ const reset = () => {
       }
       body.sleep()
     })
-
-
   } catch (error) {
     console.log(error, 3);
   }
 }
+
 const saveInitialStates = () => {
   physicsManager.world.bodies.forEach((body) => {
     if (!savedStates.has(body)) {
@@ -378,11 +501,8 @@ const saveInitialStates = () => {
         type: body.type
       });
     }
-    console.log(savedStates);
-
   });
 }
-
 </script>
 
 <style scoped>

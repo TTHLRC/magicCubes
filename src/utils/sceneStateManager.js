@@ -51,6 +51,13 @@ export class SceneStateManager {
 
   // 保存场景状态
   async saveSceneState(state = {}) {
+    //判断是个空对象
+    if (Object.keys(state).length === 0) {
+      const res = JSON.parse(localStorage.getItem('scene_state'))
+      if (Object.keys(res.hingePoints).length != 0) {
+        state.hingeMap = res.hingePoints
+      }
+    }
     const sceneState = {
       cubes: this.cubeManager.getAllCubes().map(cube => ({
         position: {
@@ -58,28 +65,15 @@ export class SceneStateManager {
           y: cube.position.y,
           z: cube.position.z
         },
-        uuid: cube.uuid
+        uuid: cube.uuid,
+        isFix: cube.userData?.isFix || false
       })),
-      selectedCubes: (state.selectedCubes || []).map(cube => ({
-        position: {
-          x: cube.position.x,
-          y: cube.position.y,
-          z: cube.position.z
-        },
-        uuid: cube.uuid
-      })),
-      hingePoints: (state.selectedHinges || []).map(hinge => ({
-        position: {
-          x: hinge.position.x,
-          y: hinge.position.y,
-          z: hinge.position.z
-        },
-        uuid: hinge.uuid,
-        status: hinge.userData?.status || false,
-        connectedCubes: (hinge.userData?.connectedCubes || []).map(cube => cube.uuid)
-      }))
+      hingePoints: state.hingeMap,
+      selectedCubes: []
     }
-    const response = await fetch('https://web-production-6b633.up.railway.app/saveCubeData', {
+
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sceneState))
+    const response = await fetch('/api/saveCubeData', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,24 +81,27 @@ export class SceneStateManager {
       },
       body: JSON.stringify(sceneState)
     })
-    console.log(response);
   }
 
   // 加载场景状态
   async loadSceneState(importedState = null) {
     let sceneState = null
 
+
+    console.log(localStorage.getItem(this.STORAGE_KEY, JSON.stringify(sceneState)));
+
     // 如果有导入的状态，使用导入的状态
-    if (importedState) {
-      sceneState = importedState
+    if (importedState || localStorage.getItem(this.STORAGE_KEY, JSON.stringify(sceneState))) {
+      sceneState = importedState ? importedState : JSON.parse(localStorage.getItem(this.STORAGE_KEY))
     } else {
       // 否则从本地存储加载
-      const response = await fetch('https://web-production-6b633.up.railway.app/getCubeData', {
+      const response = await fetch('/api/getCubeData', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       })
+
       const data = await response.json()
       const savedState = data
 

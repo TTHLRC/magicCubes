@@ -47,9 +47,7 @@ export class CubeManager {
     // 创建物理体
     const physicsManager = this.physicsManager
     if (physicsManager) {
-      console.log('Creating physics body for cube:', cube.uuid)
       const body = physicsManager.createCubeBody(cube)
-      console.log('Created physics body:', body)
       this.cubeBodies.set(cube.uuid, body)
       // 将物理体引用存储到立方体的 userData 中
       cube.userData.physicsBody = body
@@ -142,17 +140,25 @@ export class CubeManager {
 
     directions.forEach(dir => {
       const cone = new THREE.Mesh(coneGeometry, normalMaterial_Cone)
+      // 将圆锥体添加到控制组中
+      this.coneControlGroup.add(cone)
+      this.coneControlArray.push(cone)
+
+      // 设置圆锥体的初始位置和旋转
       cone.position.set(
-        center.x + dir.position[0],
-        center.y + dir.position[1],
-        center.z + dir.position[2]
+        dir.position[0],
+        dir.position[1],
+        dir.position[2]
       )
       cone.rotation.set(dir.rotation[0], dir.rotation[1], dir.rotation[2])
       cone.renderOrder = -1
       cone.userData.isControlCone = true
-      this.coneControlGroup.add(cone)
-      this.coneControlArray.push(cone)
+      cone.userData.relativePosition = new THREE.Vector3(...dir.position)
+      cone.userData.relativeRotation = new THREE.Euler(...dir.rotation)
     })
+
+    // 更新圆锥体组的位置到立方体中心
+    this.coneControlGroup.position.copy(center)
   }
 
   clearControlCones() {
@@ -161,6 +167,12 @@ export class CubeManager {
       cone.geometry.dispose()
     })
     this.coneControlArray = []
+  }
+  getConeControlGroup() {
+    return this.coneControlGroup
+  }
+  getConeControlArray() {
+    return this.coneControlArray
   }
 
   updateControlCones(center) {
@@ -212,7 +224,6 @@ export class CubeManager {
         opacity: 0.8
       })
       this.sceneStateManager.scene.children.forEach(itme => {
-        console.log(itme.uuid == cube.uuid);
         if (itme.uuid === cube.uuid) {
           this.fixedCubes.add(itme.uuid)
           itme.material = fixedMaterial
@@ -241,7 +252,6 @@ export class CubeManager {
         });
         cube.material = originalMaterial;
       }
-      console.log('Applied original material to cube:', cube.material);
 
       // 设置 isFix 字段为 false
       cube.userData.isFix = false
@@ -259,5 +269,12 @@ export class CubeManager {
   getCubeBody(cube) {
     const body = this.cubeBodies.get(cube.uuid)
     return body
+  }
+
+  // 添加更新圆锥体位置的方法
+  updateControlConesPosition(cubePosition) {
+    if (this.coneControlGroup) {
+      this.coneControlGroup.position.copy(cubePosition)
+    }
   }
 } 

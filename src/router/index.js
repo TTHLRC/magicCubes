@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import Create from '../views/Create.vue'
 import Hinge from '../views/Hinge.vue'
 import Demo from '../views/Demo.vue'
@@ -8,7 +8,7 @@ import Help from '@/views/Help.vue'
 const routes = [
   {
     path: '/introduction',
-    name:'Introduction',
+    name: 'Introduction',
     component: Introduction
   },
   {
@@ -38,7 +38,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
 })
 

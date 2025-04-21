@@ -109,6 +109,7 @@ const toggleFixMode = () => {
 
     if (allCubes.length > 0) {
       const firstCube = allCubes[0]
+
       threeScene.value.cubeManager.setFixed(firstCube, true)
     }
   }

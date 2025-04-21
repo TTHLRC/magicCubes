@@ -2,6 +2,11 @@
   <div class="hinge-container">
     <NavBar />
     <div class="scene-container" ref="container"></div>
+    <div class="tag mode-toolbar">
+      <div @click="sum">
+        <i class="fas fa-play"></i>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -46,7 +51,9 @@ onMounted(() => {
   // 添加窗口大小调整监听
   window.addEventListener('resize', () => sceneUtils.onWindowResize())
 })
-
+const sum = () => {
+  sceneUtils.cameraControls.saveHingeState()
+}
 onBeforeUnmount(() => {
   if (sceneUtils) {
     sceneUtils.dispose()
@@ -116,5 +123,56 @@ onBeforeUnmount(() => {
 
 .control-btn:active {
   transform: scale(0.98);
+}
+
+.create-container {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+}
+
+.tag {
+  position: fixed;
+  left: 40px;
+  top: 150px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tag div {
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tag div:hover {
+  background: #ddc23a;
+  border-radius: 8px;
+}
+
+.mode-tool-btn.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.mode-toolbar {
+  position: absolute;
+  left: 70px;
+  top: 50%;
+  width: 60px;
+  height: auto;
+  transform: translateY(-50%);
+  background: linear-gradient(145deg, rgba(70, 70, 70, 0.9), rgba(40, 40, 40, 0.9));
+  padding: 15px;
+  border-radius: 15px;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 10;
 }
 </style>

@@ -129,7 +129,7 @@ const handleLogin = async () => {
 
     try {
         isLoading.value = true
-        const response = await fetch('https://web-production-6b633.up.railway.app/login', {
+        const response = await fetch('/api/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -141,7 +141,6 @@ const handleLogin = async () => {
         })
 
         const data = await response.json()
-        console.log(response);
 
         if (!response.ok) {
             throw new Error(data.message || 'Login failed')
@@ -173,7 +172,7 @@ const handleRegister = async () => {
 
     try {
         isLoading.value = true
-        const response = await fetch('https://web-production-6b633.up.railway.app/register', {
+        const response = await fetch('/api/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

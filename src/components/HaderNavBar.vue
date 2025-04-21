@@ -8,7 +8,7 @@
       <router-link to="/help" class="nav-link" :class="{ active: currentRoute === '/help' }">Help</router-link>
     </div>
     <div class="user-menu">
-      <div class="logo font16">Welcome</div>
+      <div v-if="isLoggedIn" class="logo font16">Welcome</div>
       <button v-if="isLoggedIn" class="login-btn" @click="loginOut">退出</button>
       <button v-if="!isLoggedIn" class="login-btn" @click="showLoginDialog">Login</button>
     </div>
@@ -26,10 +26,12 @@ const currentRoute = computed(() => route.path)
 const loginDialog = ref(null)
 
 onMounted(() => {
+  console.log(localStorage.getItem('token'));
 
   if (!localStorage.getItem('token')) {
-
     loginDialog.value.show()
+  } else {
+    loginDialog.value.hide()
   }
 })
 const loginOut = () => {

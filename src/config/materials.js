@@ -17,7 +17,9 @@ export const selectedMaterial_Hinge = new THREE.MeshStandardMaterial({
 export const normalMaterial_Cone = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   transparent: true,
-  opacity: 0.5
+  opacity: 0.5,
+  depthTest: false,
+  depthWrite: false
 })
 
 // 其他材质配置... 
