@@ -9,15 +9,14 @@
         <div class="tutorial-step">
           <h4>Home Page</h4>
           <p>- Full Screen -- Click the first button at left sidebar of Home page</p>
-          <p>- Split View -- Click the second button at left sidebar of Home page</p>
           <p>- export -- Click the third button at the left sidebar of Home page</p>
           <p>- import -- Click the fourth button at the left sidebar of Home page</p>
         </div>
         
         <div class="tutorial-step">
           <h4>Creation Mode</h4>
-          <p>- Create Voxels -- Control + Click left mouse button</p>
-          <p>- Remove Voxels -- Click right mouse button</p>
+          <p>- Create Voxels -- Command + Click left mouse button</p>
+          <p>- Remove Voxels -- Command + Click right mouse button</p>
           <p>- Fix the Voxel created first -- Click the first button at the left sidebar in Creation mode</p>
           <p>- Adjust camera view -- W/S/A/D/Shift/Space and Click the left mouse button </p>
           <p>- Select Creation Layer -- Click up or down buttons</p>
@@ -25,15 +24,15 @@
         
         <div class="tutorial-step">
           <h4>Hinge Mode</h4>
-          <p>- Choose Voxels -- Control + Click left mouse button</p>
-          <p>- Create Hinges -- Control + Click left mouse button</p>
+          <p>- Choose Voxels -- Command + Click left mouse button</p>
+          <p>- Create Hinges -- Command + Click left mouse button</p>
           <p>- Comfirm hinges Creation -- Click the first button at the left sidebar in Hinge mode</p>
         </div>
 
         <div class="tutorial-step">
           <h4>Demo Mode</h4>
-          <p>- Choose Voxels -- Control + Click left mouse button</p>
-          <p>- Apply force -- Control + Click left mouse button of one of six cones</p>
+          <p>- Choose Voxels -- Command + Click left mouse button</p>
+          <p>- Apply force -- Command + Click left mouse button of one of six cones</p>
           <p>- Stop Choosing -- Click the right mouse button </p>
           <p>- Start Simulation -- Click the first button at the left sidebar in Demo mode</p>
           <p>- Stop Simulation -- Click the second button at the left sidebar in Demo mode</p>
@@ -75,27 +74,19 @@
           <li>Pause/Resume: Control the exsitence of gravity.</li>
           <li>Reset: Restore the model to its initial state</li>
         </ul>
-
-        <h3>Split-View Mode</h3>
-        <p>In Split-View Mode: our AI algorithm can automatically check whether your intended deformation is feasible. If it is, the AI will provide you with a solution to achieve it.</p>
-        <ul>
-          <li>Import Initial State: Import the model created in Creation Mode into the initial state by Clicking the third button at the left sidebar in Creation Mode</li>
-          <li>Import Target State: Import the model created in Creation Mode into the target state by Clicking the fourth button at the left sidebar in Creation Mode</li>
-          <li>Get the Solution from the AI: Obtain feasibility and solution by Clicking the button in the .</li>
-        </ul>
       </div>
 
       <div class="help-section">
         <h2>FAQ</h2>
         
         <h3>Q: How do I save my creation?</h3>
-        <p>A: Click the export button in the toolbar and your creation will export as a qsl file.</p>
-        
-        <h3>Q: How do I use the split view?</h3>
-        <p>A: Click the split view button in the toolbar and you could use the tow buttons at Creation mode to import the initial state and target state. </p>
-        
-        <h3>Q: How do I check or get the path from the initial state to the target state?</h3>
-        <p>A: Once the initial and target states are set, the system will automatically calculate the optimal motion path if it exists. And you could follow the path to add all the hinges and simulate at our web manually.</p>
+        <p>A: Click the export button in the toolbar and your creation will export as a json file.</p>
+      
+        <h3>Q: If I could not simulate well in the demo mode, why and what should I do?</h3>
+        <p>A: The main reason is you create the wrong hinges that make the model stable. You should check the hinges you created and adjust them.</p>
+
+        <h3>Q: Why all the voxels are falling down in the demo mode?</h3>
+        <p>A: The main reason is you did not fix the first voxel. You should go back to the creation mode and fix the first voxel.</p>
       </div>
 
       <div class="tutorial-step">
@@ -115,9 +106,9 @@ const isLoggedIn = ref(false)
 
 const shortcuts = [
   { action: 'Rotate View', key: 'Left Mouse Drag' },
-  { action: 'Create Voxels', key: 'Ctrl + Left Mouse Drag' },
-  { action: 'Delete Voxels', key: 'Right Mouse Grag' },
-  { action: 'Choose Voxels', key: 'Ctrl + Left Mouse Drag' }
+  { action: 'Create Voxels', key: 'Command + Left Mouse Drag' },
+  { action: 'Delete Voxels', key: 'Command + Right Mouse Grag' },
+  { action: 'Choose Voxels', key: 'Command + Left Mouse Drag' }
 ]
 
 const showLoginDialog = () => {

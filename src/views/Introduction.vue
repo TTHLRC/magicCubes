@@ -54,16 +54,6 @@
       icon: 'fas fa-file-export',
       title: 'Export Functionality',
       description: 'Supports exporting to multiple 3D file formats for use in other software or further editing.'
-    },
-    {
-      icon: 'fas fa-columns',
-      title: 'Split View',
-      description: 'View both the initial and target states simultaneously to better plan and visualize model transformations.'
-    },
-    {
-      icon: 'fas fa-magic',
-      title: 'Smart Optimization',
-      description: 'Built-in intelligent algorithms that automatically optimize motion paths and transformation processes.'
     }
   ]
   
