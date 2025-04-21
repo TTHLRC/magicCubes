@@ -129,7 +129,7 @@ const handleLogin = async () => {
 
     try {
         isLoading.value = true
-        const response = await fetch('/api/login', {
+        const response = await fetch('https://web-production-6b633.up.railway.app/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ const handleRegister = async () => {
 
     try {
         isLoading.value = true
-        const response = await fetch('/api/register', {
+        const response = await fetch('https://web-production-6b633.up.railway.app/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
