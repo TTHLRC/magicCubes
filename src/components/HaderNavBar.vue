@@ -9,7 +9,7 @@
     </div>
     <div class="user-menu">
       <div v-if="isLoggedIn" class="logo font16">Welcome</div>
-      <button v-if="isLoggedIn" class="login-btn" @click="loginOut">退出</button>
+      <button v-if="isLoggedIn" class="login-btn" @click="loginOut">LogOut</button>
       <button v-if="!isLoggedIn" class="login-btn" @click="showLoginDialog">Login</button>
     </div>
   </nav>
